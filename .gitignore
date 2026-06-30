@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/
+trace.zip
+
+# Environment / secrets — never commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Auth state captured at runtime (may contain session tokens)
+/.auth/
+storageState*.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

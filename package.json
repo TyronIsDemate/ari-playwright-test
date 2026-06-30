@@ -1,0 +1,34 @@
+{
+  "name": "ari-playwright-tests",
+  "version": "1.0.0",
+  "description": "End-to-end Playwright test suite for the Ari user account flows (login & signup) at https://ari.beta.citizenhealth.com",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:login": "playwright test tests/login",
+    "test:signup": "playwright test tests/signup",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:chromium": "playwright test --project=chromium",
+    "test:list": "playwright test --list",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen https://ari.beta.citizenhealth.com",
+    "install:browsers": "playwright install --with-deps"
+  },
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "ari",
+    "citizen-health"
+  ],
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "dotenv": "^16.4.7"
+  }
+}
