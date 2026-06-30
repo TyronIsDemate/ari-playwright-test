@@ -15,6 +15,7 @@ trace.zip
 
 # Auth state captured at runtime (may contain session tokens)
 /.auth/
+/playwright/.auth/
 storageState*.json
 
 # OS / editor

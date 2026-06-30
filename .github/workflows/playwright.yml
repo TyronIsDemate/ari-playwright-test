@@ -5,10 +5,9 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
-  # Nightly run against the beta environment (07:00 UTC).
+  # Nightly full regression (07:00 UTC).
   schedule:
     - cron: '0 7 * * *'
-  # Allow manual runs from the Actions tab, optionally overriding the base URL.
   workflow_dispatch:
     inputs:
       base_url:
@@ -20,68 +19,103 @@ concurrency:
   group: playwright-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  BASE_URL: ${{ github.event.inputs.base_url || vars.BASE_URL || 'https://ari.beta.citizenhealth.com' }}
+
 jobs:
-  test:
-    name: Test (${{ matrix.project }})
+  # 1) Fast static gate.
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+
+  # 2) Logged-out regression across browsers. SMS-free on push/PR; the OTP tiers
+  #    only activate on the nightly schedule / manual dispatch (and only if the
+  #    ARI_ALLOW_OTP_FLOW repo variable is set to true).
+  public:
+    name: Public (${{ matrix.project }})
+    needs: typecheck
     timeout-minutes: 30
     runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
-        # Cross-browser coverage. Mobile projects share these engines, so we
-        # run the three desktop engines in CI; add mobile-* locally as needed.
         project: [chromium, firefox, webkit]
-
     env:
       CI: 'true'
-      BASE_URL: ${{ github.event.inputs.base_url || vars.BASE_URL || 'https://ari.beta.citizenhealth.com' }}
-      # Passwordless phone + OTP auth. By default the suite sends NO SMS (it
-      # validates the phone UI via button state). The OTP/happy-path tests are
-      # opt-in and skip unless these are provided.
-      ARI_ALLOW_OTP_FLOW: ${{ vars.ARI_ALLOW_OTP_FLOW || 'false' }}
+      ARI_ALLOW_OTP_FLOW: ${{ (vars.ARI_ALLOW_OTP_FLOW == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && 'true' || 'false' }}
       ARI_TEST_PHONE: ${{ secrets.ARI_TEST_PHONE }}
-      # Provide a code source for the happy-path tests: ARI_TEST_OTP (static) OR
-      # Twilio creds (when ARI_TEST_PHONE is a Twilio number receiving the SMS).
       ARI_TEST_OTP: ${{ secrets.ARI_TEST_OTP }}
       TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
       TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
       ARI_COUNTRY_CODE: ${{ vars.ARI_COUNTRY_CODE || '1' }}
       ARI_REGISTERED_PHONE: ${{ secrets.ARI_REGISTERED_PHONE }}
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type-check
-        run: npm run typecheck
-
-      - name: Install Playwright browsers
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Install Playwright browser
         run: npx playwright install --with-deps ${{ matrix.project }}
-
-      - name: Run Playwright tests
+      - name: Run tests
         run: npx playwright test --project=${{ matrix.project }}
-
       - name: Upload HTML report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.project }}
+          name: report-public-${{ matrix.project }}
           path: playwright-report/
           retention-days: 14
-
-      - name: Upload test results (traces, videos, screenshots)
+      - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.project }}
+          name: results-public-${{ matrix.project }}
+          path: test-results/
+          retention-days: 7
+
+  # 3) Authenticated regression (dashboard). Logs in once via OTP, reuses the
+  #    session. Only runs on schedule/dispatch when OTP is enabled + secrets set.
+  authenticated:
+    name: Authenticated regression (dashboard)
+    needs: typecheck
+    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.ARI_ALLOW_OTP_FLOW == 'true'
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      CI: 'true'
+      ARI_ALLOW_OTP_FLOW: 'true'
+      ARI_TEST_PHONE: ${{ secrets.ARI_TEST_PHONE }}
+      ARI_TEST_OTP: ${{ secrets.ARI_TEST_OTP }}
+      TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      ARI_COUNTRY_CODE: ${{ vars.ARI_COUNTRY_CODE || '1' }}
+      ARI_REGISTERED_PHONE: ${{ secrets.ARI_REGISTERED_PHONE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Run authenticated dashboard regression
+        run: npx playwright test --project=chromium-authed
+      - name: Upload HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-authenticated
+          path: playwright-report/
+          retention-days: 14
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-authenticated
           path: test-results/
           retention-days: 7

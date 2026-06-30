@@ -7,30 +7,59 @@ dotenv.config();
 export const BASE_URL = process.env.BASE_URL ?? 'https://ari.beta.citizenhealth.com';
 const isCI = !!process.env.CI;
 
+/** Saved authenticated session, produced by tests/setup/auth.setup.ts. */
+export const STORAGE_STATE = 'playwright/.auth/user.json';
+
 /**
- * Playwright configuration for the Ari login & signup E2E suite.
+ * Whether a full OTP login can be performed (so the authenticated/dashboard
+ * projects are worth wiring up). Mirrors canRunFullOtp() in test-data.ts but is
+ * inlined here to keep the config free of test-only imports.
+ */
+const otpConfigured =
+  process.env.ARI_ALLOW_OTP_FLOW === 'true' &&
+  !!process.env.ARI_TEST_PHONE &&
+  (!!process.env.ARI_TEST_OTP || (!!process.env.TWILIO_ACCOUNT_SID && !!process.env.TWILIO_AUTH_TOKEN));
+
+// Logged-out (public) projects — run the smoke/login/signup specs and explicitly
+// ignore the dashboard, which requires authentication.
+const DASHBOARD_DIR = /[\\/]dashboard[\\/]/;
+const publicProjects = [
+  { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: DASHBOARD_DIR },
+  { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: DASHBOARD_DIR },
+  { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: DASHBOARD_DIR },
+  { name: 'mobile-chrome', use: { ...devices['Pixel 7'] }, testIgnore: DASHBOARD_DIR },
+  { name: 'mobile-safari', use: { ...devices['iPhone 14'] }, testIgnore: DASHBOARD_DIR },
+];
+
+// Authenticated projects — only defined when OTP login is configured, so the
+// default suite never references a missing storage-state file. The `setup`
+// project logs in once; `chromium-authed` reuses that session for the dashboard.
+const authProjects = otpConfigured
+  ? [
+      { name: 'setup', testMatch: /.*\.setup\.ts/ },
+      {
+        name: 'chromium-authed',
+        use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
+        testMatch: DASHBOARD_DIR,
+        dependencies: ['setup'],
+      },
+    ]
+  : [];
+
+/**
+ * Playwright configuration for the Ari E2E / regression suite.
  * Docs: https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
   testDir: './tests',
-
-  // Run files in parallel; tests inside a file run sequentially by default.
   fullyParallel: true,
-
-  // Fail the CI build if test.only is accidentally committed.
   forbidOnly: isCI,
-
-  // Retry flaky tests on CI; never locally (so flakiness surfaces immediately).
   retries: isCI ? 2 : 0,
-
-  // Limit workers on CI for stability against a shared beta environment.
   workers: isCI ? 2 : undefined,
 
-  // Hard timeouts keep a hung beta backend from stalling the whole run.
   timeout: 45_000,
   expect: { timeout: 10_000 },
 
-  // Rich reporting: list in the console + HTML report + JUnit for CI dashboards.
   reporter: [
     ['list'],
     ['html', { open: 'never' }],
@@ -39,44 +68,15 @@ export default defineConfig({
 
   use: {
     baseURL: BASE_URL,
-
-    // Capture artifacts only when something goes wrong — keeps runs fast.
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
-
-    launchOptions: {
-      slowMo: Number(process.env.SLOWMO ?? 0),
-    },
-
-    // A health app may be picky about UA / locale; keep these explicit.
+    launchOptions: { slowMo: Number(process.env.SLOWMO ?? 0) },
     locale: 'en-US',
     timezoneId: 'America/New_York',
   },
 
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-    {
-      name: 'mobile-chrome',
-      use: { ...devices['Pixel 7'] },
-    },
-    {
-      name: 'mobile-safari',
-      use: { ...devices['iPhone 14'] },
-    },
-  ],
+  projects: [...authProjects, ...publicProjects],
 });

@@ -69,10 +69,14 @@ ari-playwright-tests/
 │   │   ├── LandingPage.ts             #   "/" CTAs
 │   │   ├── LoginPage.ts               #   phone → Send code
 │   │   ├── SignupPage.ts              #   intro → phone → Continue
-│   │   └── OtpForm.ts                 #   shared 6-digit OTP component
+│   │   ├── OtpForm.ts                 #   shared 6-digit OTP component
+│   │   └── DashboardPage.ts           #   authenticated dashboard (skeleton)
 │   ├── fixtures/{fixtures,test-data}.ts
-│   └── utils/helpers.ts               # phone gen, validity checks, invalid-phone set
-├── tests/{smoke,login,signup}/
+│   └── utils/{helpers,sms}.ts         # phone/validity helpers; OTP retrievers
+├── tests/
+│   ├── setup/auth.setup.ts            # logs in once → saves session (regression)
+│   ├── smoke/  login/  signup/        # logged-out specs
+│   └── dashboard/                     # authenticated specs (start logged-in)
 ├── .env.example                       # copy → .env (never commit .env)
 └── package.json
 ```
@@ -121,14 +125,46 @@ ARI_COUNTRY_CODE=1             #     dial code for E.164 (default 1 = US)
 
 ```bash
 npm test                       # all browsers
+npm run test:ci                # SMS-free set (excludes @otp/@positive/@manual)
+npm run test:regression        # full suite
 npm run test:login             # login specs
 npm run test:signup            # signup specs
 npm run test:smoke             # @smoke
-npx playwright test --grep @validation
-npx playwright test --grep-invert "@otp|@manual"   # explicitly SMS-free
+npm run test:auth              # run only the auth-session setup
+npm run test:dashboard         # authenticated dashboard regression
 npm run report                 # open last HTML report
 node scripts/explore.mjs /login /signup            # inspect live DOM
 ```
+
+---
+
+## Regression testing
+
+The suite is structured for repeatable regression runs:
+
+- **Reusable login session.** `tests/setup/auth.setup.ts` performs the OTP login
+  **once** and saves the browser session to `playwright/.auth/user.json`. The
+  `chromium-authed` project loads that session, so every dashboard test starts
+  **already authenticated** — no per-test phone/OTP. (This project only exists
+  when OTP login is configured, so the default suite is unaffected.)
+- **Logged-out vs. authenticated split.** Public projects
+  (`chromium`/`firefox`/`webkit` + mobile) run the smoke/login/signup specs and
+  ignore `tests/dashboard/`. The `chromium-authed` project (depends on `setup`)
+  runs only `tests/dashboard/`.
+- **Selective targets.** `test:ci` (SMS-free, for PRs), `test:regression` (full),
+  `test:dashboard`, `test:auth`, plus tag filters: `@smoke @login @signup
+  @validation @negative @otp @positive @manual @dashboard @regression`.
+- **CI cadence.** Push/PR runs the **SMS-free** public matrix for fast feedback;
+  the **nightly schedule + manual dispatch** run the full regression — OTP tiers
+  and the authenticated dashboard job — when `ARI_ALLOW_OTP_FLOW=true`.
+
+### Adding your dashboard tests
+
+1. Configure OTP login (so the session can be created) — see above.
+2. Fill in real selectors in `src/pages/DashboardPage.ts`.
+3. Add specs under `tests/dashboard/*.spec.ts` using the `dashboardPage` fixture;
+   `page` is already authenticated. See `dashboard.example.spec.ts` for the
+   pattern (turn the `test.fixme` placeholders into real assertions).
 
 ---
 
