@@ -41,7 +41,12 @@ jobs:
       # opt-in and skip unless these are provided.
       ARI_ALLOW_OTP_FLOW: ${{ vars.ARI_ALLOW_OTP_FLOW || 'false' }}
       ARI_TEST_PHONE: ${{ secrets.ARI_TEST_PHONE }}
+      # Provide a code source for the happy-path tests: ARI_TEST_OTP (static) OR
+      # Twilio creds (when ARI_TEST_PHONE is a Twilio number receiving the SMS).
       ARI_TEST_OTP: ${{ secrets.ARI_TEST_OTP }}
+      TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      ARI_COUNTRY_CODE: ${{ vars.ARI_COUNTRY_CODE || '1' }}
       ARI_REGISTERED_PHONE: ${{ secrets.ARI_REGISTERED_PHONE }}
 
     steps:
@@ -55,6 +60,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps ${{ matrix.project }}

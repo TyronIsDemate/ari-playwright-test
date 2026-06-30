@@ -98,14 +98,24 @@ Set these in `.env` (local) or as GitHub Secrets (CI):
 ```ini
 ARI_ALLOW_OTP_FLOW=true        # permit Send code / Continue (sends SMS)
 ARI_TEST_PHONE=2015551234      # dedicated test number (digits only)
-ARI_TEST_OTP=000000            # static code your beta accepts for that number
 ARI_REGISTERED_PHONE=          # optional; defaults to ARI_TEST_PHONE
+
+# Plus ONE code source:
+ARI_TEST_OTP=000000            # (A) static code your beta accepts, OR
+TWILIO_ACCOUNT_SID=ACxxxx      # (B) Twilio — ARI_TEST_PHONE is a Twilio number
+TWILIO_AUTH_TOKEN=xxxx         #     that receives the SMS; we poll its REST API
+ARI_COUNTRY_CODE=1             #     dial code for E.164 (default 1 = US)
 ```
 
-> **Automating the real OTP.** A headless browser can't read an SMS. Two options:
-> (1) use a **whitelisted test number with a static code** on staging and set
-> `ARI_TEST_OTP`; or (2) wire an SMS-retrieval provider (e.g. Twilio) into
-> `OtpForm.enterCode`. Until one is in place, `@positive`/`@manual` tests skip.
+> **Automating the real OTP.** A headless browser can't read an SMS, so the code
+> comes from a pluggable retriever (`src/utils/sms.ts`):
+> - **Static** — set `ARI_TEST_OTP` for a whitelisted test number with a fixed code.
+> - **Twilio** — make `ARI_TEST_PHONE` a Twilio number that receives the OTP and
+>   set `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN`; the suite polls Twilio's
+>   Messages API for the newest 6-digit code (takes precedence over the static code).
+> - **Other provider** — implement `OtpRetriever` and return it from `getOtpRetriever()`.
+>
+> Until one is configured, `@positive`/`@manual` tests skip.
 
 ### Useful commands
 
@@ -135,7 +145,8 @@ for the opt-in tiers:
 | Name | Purpose |
 |------|---------|
 | `ARI_TEST_PHONE` | Happy-path test number |
-| `ARI_TEST_OTP` | Static code for that number |
+| `ARI_TEST_OTP` | *(code source A)* static code for that number |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | *(code source B)* Twilio creds when the test number is a Twilio number |
 | `ARI_REGISTERED_PHONE` | *(optional)* existing-account scenarios |
 
 Set repo **variable** `ARI_ALLOW_OTP_FLOW=true` to enable the SMS tiers in CI, and
@@ -150,7 +161,8 @@ optionally `BASE_URL` to target another environment.
    heading, known URL) once you've completed a real login.
 2. **Country selector** — only US (+1) was observed. If more dial codes ship, add
    a `selectCountry()` method to `LoginPage`/`SignupPage`.
-3. **OTP retrieval** — see the note above to light up the happy-path tiers.
+3. **OTP retrieval** — configure a static code or Twilio (see above), or add a
+   provider in `src/utils/sms.ts`, to light up the happy-path tiers.
 4. **Profile steps** — signup continues into profile setup after OTP; extend
    `SignupPage` to cover those screens when you want end-to-end onboarding coverage.
 

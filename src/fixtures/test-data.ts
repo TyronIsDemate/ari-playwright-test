@@ -1,4 +1,5 @@
 import { fictionalPhone, VALID_PHONE_DIGITS } from '../utils/helpers.js';
+import { getOtpRetriever, hasOtpRetriever } from '../utils/sms.js';
 
 /**
  * Centralized test data and credential resolution for Ari's phone + OTP auth.
@@ -21,9 +22,19 @@ export const credentials = {
   registeredPhone: ((process.env.ARI_REGISTERED_PHONE || process.env.ARI_TEST_PHONE) ?? '').replace(/\D/g, ''),
 };
 
-/** Happy-path login/signup is only runnable with a phone AND a usable code. */
+/**
+ * Happy-path login/signup is runnable when the flow is opted in, we have a test
+ * number, and SOME way to obtain the code (static ARI_TEST_OTP or Twilio).
+ */
 export function canRunFullOtp(): boolean {
-  return config.allowOtpFlow && credentials.testPhone.length >= 10 && credentials.testOtp.length > 0;
+  return config.allowOtpFlow && credentials.testPhone.length >= 10 && hasOtpRetriever();
+}
+
+/** Resolve the OTP code for the current attempt via the configured retriever. */
+export async function resolveOtp(sinceEpochMs: number): Promise<string> {
+  const retriever = getOtpRetriever();
+  if (!retriever) throw new Error('No OTP retriever configured (set ARI_TEST_OTP or Twilio env vars)');
+  return retriever.fetchCode(sinceEpochMs);
 }
 
 /** OTP-screen (send-code) tests are runnable when the flow is opted into. */

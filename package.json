@@ -14,6 +14,7 @@
     "test:smoke": "playwright test --grep @smoke",
     "test:chromium": "playwright test --project=chromium",
     "test:list": "playwright test --list",
+    "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
     "codegen": "playwright codegen https://ari.beta.citizenhealth.com",
     "install:browsers": "playwright install --with-deps"
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.0",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "typescript": "^5.7.2"
   }
 }
