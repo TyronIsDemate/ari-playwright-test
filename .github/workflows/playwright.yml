@@ -14,6 +14,11 @@ on:
         description: 'Base URL to test against'
         required: false
         default: 'https://ari.beta.citizenhealth.com'
+      run_lambdatest:
+        description: 'Also run the suite on the LambdaTest cloud grid'
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: playwright-${{ github.ref }}
@@ -119,3 +124,32 @@ jobs:
           name: results-authenticated
           path: test-results/
           retention-days: 7
+
+  # 4) Cross-browser run on the LambdaTest cloud grid. Opt-in only (billable
+  #    minutes): trigger via "Run workflow" with run_lambdatest = true.
+  lambdatest:
+    name: LambdaTest cloud grid
+    needs: typecheck
+    if: github.event_name == 'workflow_dispatch' && inputs.run_lambdatest == true
+    timeout-minutes: 40
+    runs-on: ubuntu-latest
+    env:
+      CI: 'true'
+      LT_USERNAME: ${{ secrets.LT_USERNAME }}
+      LT_ACCESS_KEY: ${{ secrets.LT_ACCESS_KEY }}
+      LT_BUILD: ari-e2e-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      # No local browser install needed — tests run on the remote grid.
+      - name: Run suite on LambdaTest
+        run: npm run test:lambdatest
+      - name: Upload HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-lambdatest
+          path: playwright-report/
+          retention-days: 14

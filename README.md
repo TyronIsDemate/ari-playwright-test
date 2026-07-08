@@ -190,6 +190,36 @@ optionally `BASE_URL` to target another environment.
 
 ---
 
+## Running on LambdaTest (cloud grid)
+
+Run the logged-out suite across real browsers/OSes on [LambdaTest](https://www.lambdatest.com)
+instead of local browsers — config in `playwright.lambdatest.config.ts`
+(projects: Chrome & Edge & Firefox on Windows 11, WebKit on macOS).
+
+1. Get your **Username** and **Access Key** from LambdaTest → *Account Settings →
+   Access Key*.
+2. Add them to `.env` locally (git-ignored) **or** GitHub Secrets — never commit them:
+   ```ini
+   LT_USERNAME=your_username
+   LT_ACCESS_KEY=your_access_key
+   LT_CONCURRENCY=5      # match your plan's parallel-session limit
+   ```
+3. Run:
+   ```bash
+   npm run test:lambdatest          # full logged-out suite on the grid
+   npm run test:lambdatest:smoke    # just @smoke, to validate the connection
+   ```
+
+Results (video, network, console logs) appear in your LambdaTest dashboard. Ari's
+beta is public, so no tunnel is needed; set `tunnel: true` in the config (and start
+LambdaTest Tunnel) only for a localhost/private URL.
+
+**In CI:** add `LT_USERNAME` / `LT_ACCESS_KEY` as repository secrets, then trigger
+the workflow manually (**Actions → Run workflow**) with **run_lambdatest = true**.
+It's opt-in so billable grid minutes are never consumed automatically. The
+authenticated dashboard suite isn't run on the grid yet (it needs the saved
+session) — see the note below to extend it.
+
 ## Tuning after the first run
 
 1. **Post-login marker** — `LoginPage.expectLoggedIn()` asserts "left `/login`
