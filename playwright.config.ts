@@ -24,12 +24,16 @@ const otpConfigured =
 // Logged-out (public) projects — run the smoke/login/signup specs and explicitly
 // ignore the dashboard, which requires authentication.
 const DASHBOARD_DIR = /[\\/]dashboard[\\/]/;
+// The admin portal has its own config (playwright.admin.config.ts); keep its
+// specs out of the main suite entirely.
+const ADMIN_DIR = /[\\/]admin[\\/]/;
+const NON_PUBLIC_DIRS = [DASHBOARD_DIR, ADMIN_DIR];
 const publicProjects = [
-  { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: DASHBOARD_DIR },
-  { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: DASHBOARD_DIR },
-  { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: DASHBOARD_DIR },
-  { name: 'mobile-chrome', use: { ...devices['Pixel 7'] }, testIgnore: DASHBOARD_DIR },
-  { name: 'mobile-safari', use: { ...devices['iPhone 14'] }, testIgnore: DASHBOARD_DIR },
+  { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: NON_PUBLIC_DIRS },
+  { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: NON_PUBLIC_DIRS },
+  { name: 'webkit', use: { ...devices['Desktop Safari'] }, testIgnore: NON_PUBLIC_DIRS },
+  { name: 'mobile-chrome', use: { ...devices['Pixel 7'] }, testIgnore: NON_PUBLIC_DIRS },
+  { name: 'mobile-safari', use: { ...devices['iPhone 14'] }, testIgnore: NON_PUBLIC_DIRS },
 ];
 
 // Island Enterprise Browser (Chromium-based) — driven via its executable path.
@@ -41,7 +45,7 @@ const islandProjects = islandExecutable
   ? [
       {
         name: 'island',
-        testIgnore: DASHBOARD_DIR,
+        testIgnore: NON_PUBLIC_DIRS,
         use: {
           browserName: 'chromium' as const,
           launchOptions: {

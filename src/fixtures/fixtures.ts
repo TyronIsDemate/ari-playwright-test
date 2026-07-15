@@ -3,6 +3,7 @@ import { LandingPage } from '../pages/LandingPage.js';
 import { LoginPage } from '../pages/LoginPage.js';
 import { SignupPage } from '../pages/SignupPage.js';
 import { DashboardPage } from '../pages/DashboardPage.js';
+import { AdminPage } from '../pages/AdminPage.js';
 
 /**
  * Custom fixtures injecting ready-to-use page objects into every test.
@@ -14,6 +15,7 @@ type Pages = {
   loginPage: LoginPage;
   signupPage: SignupPage;
   dashboardPage: DashboardPage;
+  adminPage: AdminPage;
 };
 
 export const test = base.extend<Pages>({
@@ -28,6 +30,9 @@ export const test = base.extend<Pages>({
   },
   dashboardPage: async ({ page }, use) => {
     await use(new DashboardPage(page));
+  },
+  adminPage: async ({ page }, use) => {
+    await use(new AdminPage(page));
   },
 });
 

@@ -23,6 +23,8 @@
     "test:list": "playwright test --list",
     "signup:interactive": "node scripts/interactive-otp.mjs",
     "login:interactive": "node scripts/interactive-otp.mjs --login",
+    "admin:login": "node scripts/interactive-admin-login.mjs",
+    "test:admin": "playwright test -c playwright.admin.config.ts",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
     "codegen": "playwright codegen https://ari.beta.citizenhealth.com",
